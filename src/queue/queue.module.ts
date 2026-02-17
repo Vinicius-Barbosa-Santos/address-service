@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { AddressProcessor } from './address.processor/address.processor';
 
 @Module({
   imports: [
@@ -13,5 +14,6 @@ import { BullModule } from '@nestjs/bullmq';
       name: 'address-queue',
     }),
   ],
+  providers: [AddressProcessor],
 })
 export class QueueModule {}

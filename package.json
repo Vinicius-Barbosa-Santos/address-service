@@ -26,6 +26,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.6",
     "@prisma/client": "^6.19.2",
+    "axios": "^1.13.5",
     "bullmq": "^5.69.3",
     "ioredis": "^5.9.3",
     "prisma": "^6.19.2",
