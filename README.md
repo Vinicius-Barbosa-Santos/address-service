@@ -167,6 +167,26 @@ $ docker-compose up
 $ docker-compose up -d
 ```
 
+## 🗄 Prisma Setup
+
+````bash
+# Generate Prisma Client
+$ npx prisma generate
+
+# Run migrations
+$ npx prisma migrate dev
+
+
+---
+
+### 🔹 2️⃣ Prisma Studio (muito recomendado)
+
+Para visualizar os dados no banco:
+
+```bash
+$ npx prisma studio
+````
+
 ## 📈 Diferenciais Técnicos
 
 - Arquitetura desacoplada
