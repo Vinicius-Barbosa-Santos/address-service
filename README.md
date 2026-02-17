@@ -297,48 +297,10 @@ O repositório inclui um export do Insomnia para facilitar os testes dos endpoin
 
 ---
 
-## Build containers
-
-```bash
-$ docker-compose build
-```
-
-## Start containers
-
-```bash
-$ docker-compose up
-```
-
-## Start in background
-
-```bash
-$ docker-compose up -d
-```
-
-## 🗄 Prisma Setup
-
-````bash
-# Generate Prisma Client
-$ npx prisma generate
-
-# Run migrations
-$ npx prisma migrate dev
-
----
-
 ### 🔹 2️⃣ Prisma Studio (muito recomendado)
 
 Para visualizar os dados no banco:
 
 ```bash
 $ npx prisma studio
-````
-
-## 📈 Diferenciais Técnicos
-
-- Arquitetura desacoplada
-- Persistência não bloqueante
-- Cache com TTL
-- Separação de responsabilidades
-- Monitoramento de filas com Bull Board
-- Documentação automática
+```
