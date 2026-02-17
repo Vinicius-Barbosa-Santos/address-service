@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -23,9 +22,8 @@ async function bootstrap() {
 
   // ---------------- BULL BOARD ----------------
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const serverAdapter = new ExpressAdapter();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
   serverAdapter.setBasePath('/admin/queues');
 
   const addressQueue = app.get<Queue>(getQueueToken('address-queue'));
@@ -35,7 +33,6 @@ async function bootstrap() {
     serverAdapter,
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   app.use('/admin/queues', serverAdapter.getRouter());
 
   // ---------------- START SERVER ----------------
