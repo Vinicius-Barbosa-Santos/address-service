@@ -37,6 +37,7 @@ API para consulta de CEP com:
 - BullMQ
 - Swagger
 - Axios
+- Bull Board
 
 ---
 
@@ -132,6 +133,34 @@ http://localhost:3000/docs
 Monitoramento da fila assíncrona com Bull Board:
 
 http://localhost:3000/admin/queues
+
+---
+
+## ✅ O que foi implementado
+
+- Integração do Bull Board no bootstrap:
+  - ExpressAdapter + BullMQAdapter
+  - Rota: `/admin/queues` na própria aplicação
+- Fila e injeção:
+  - Export do `BullModule` no `QueueModule` para liberar o token da fila
+  - Uso de `getQueueToken('address-queue')` para obter a fila com tipagem
+- AddressService:
+  - Tipagem da resposta ViaCEP e do JSON.parse do cache
+  - Enfileiramento com `void` para evitar promessas pendentes
+  - TTL de 1h no cache Redis ao salvar resultados do banco
+- AddressProcessor:
+  - Implementação com `WorkerHost.process`
+  - Persistência condicional (não duplica CEP já existente)
+- BullMQ:
+  - Registro da fila `address-queue`
+- Swagger:
+  - Documentação em `/docs`
+- Insomnia:
+  - Arquivo `Insomnia_2026-02-17.yaml` com coleção de requisições
+- Testes (Jest):
+  - Service: retorna do Redis, retorna do DB e faz cache, chama ViaCEP, enfileira job
+  - Processor: não cria se já existe, cria quando não existe
+  - Controller/App: instância e resposta base
 
 ---
 
