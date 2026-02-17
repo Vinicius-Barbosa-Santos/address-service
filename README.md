@@ -135,6 +135,52 @@ http://localhost:3000/admin/queues
 
 ---
 
+## Insomnia (coleção de requests)
+
+O repositório inclui um export do Insomnia para facilitar os testes dos endpoints:
+
+- Arquivo: Insomnia_2026-02-17.yaml (na raiz do projeto)
+- Como importar no Insomnia:
+  - Abra o Insomnia.
+  - Vá em Application (ou File) → Import/Export → Import Data → From File.
+  - Selecione o arquivo Insomnia_2026-02-17.yaml.
+  - Alternativamente, arraste o arquivo para a janela do Insomnia.
+- Após importar, ajuste a variável do host se necessário (ex.: http://localhost:3000).
+
+---
+
+## 🧪 Testes
+
+- Framework: Jest + @nestjs/testing
+- Como executar:
+  - Todos os testes: `npm run test`
+  - Modo watch: `npm run test:watch`
+- Cobertura principal:
+  - AddressService:
+    - Retorna do Redis quando há cache.
+    - Retorna do banco e grava no cache quando presente no Prisma.
+    - Chama a ViaCEP quando não encontra em cache/banco e retorna `cep`, `logradouro`, `localidade`, `uf`.
+    - Enfileira o job `save-address` com payload correto para a BullMQ.
+  - AddressProcessor:
+    - Não cria um endereço quando o CEP já existe.
+    - Cria um endereço quando não existe (campos `cep`, `street`, `city`, `state`).
+  - AddressController:
+    - Controller instanciado corretamente com o service mockado.
+  - AppController:
+    - Retorna “Hello World!” no teste base.
+- Estratégias de mock:
+  - Fila: `getQueueToken('address-queue')` para registrar mock da fila.
+  - Redis: desconexão da instância real criada no serviço e injeção de mock (`get`/`set`) para evitar “open handles”.
+  - PrismaService: mock de `address.findUnique`/`address.create`.
+  - ViaCEP: `jest.mock('axios')` e `mockResolvedValue` para simular o retorno externo.
+- Arquivos relevantes:
+  - Service: `src/address/address.service.spec.ts`
+  - Controller: `src/address/address.controller.spec.ts`
+  - Processor: `src/queue/address.processor/address.processor.spec.ts`
+  - App: `src/app.controller.spec.ts`
+
+---
+
 ## Project setup
 
 ```bash
