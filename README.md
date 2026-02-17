@@ -120,19 +120,106 @@ Resposta:
 
 ---
 
-## API Documentation
+## ▶️ Como rodar o projeto
 
-Acesse a documentação interativa da API:
-
-http://localhost:3000/docs
+- Pré‑requisitos:
+  - Node.js 18+ (recomendado)
+  - Redis rodando em localhost:6379
+  - Banco configurado no Prisma (ex.: PostgreSQL) e variável `DATABASE_URL` no `.env`
+- Via npm:
+  - `npm install`
+  - `npx prisma generate`
+  - `npx prisma migrate dev`
+  - Desenvolvimento: `npm run start:dev`
+  - Produção: `npm run build && npm run start:prod`
+- Via Docker Compose:
+  - `docker-compose up -d` (sobe serviços definidos no compose)
+- Acessos padrão:
+  - API: `http://localhost:${PORT-3000}`
+  - Swagger: `http://localhost:3000/docs`
+  - Bull Board: `http://localhost:3000/admin/queues`
 
 ---
 
-## Queue Dashboard
+## 🔧 Variáveis de ambiente
 
-Monitoramento da fila assíncrona com Bull Board:
+- `PORT` — porta da API (default 3000)
+- `DATABASE_URL` — URL do banco para o Prisma
+- `REDIS_HOST`/`REDIS_PORT` — caso deseje customizar; por padrão `localhost:6379`
 
-http://localhost:3000/admin/queues
+---
+
+## 📚 Como acessar o Swagger
+
+- Documentação interativa em: `http://localhost:3000/docs`
+- Geração configurada no `main.ts` via `SwaggerModule` + `DocumentBuilder`
+
+---
+
+## 🧭 Fluxo de lazy load (consulta de CEP)
+
+- Ordem de resolução:
+  - 1. Redis (cache)
+  - 2. Banco (Prisma)
+  - 3. ViaCEP (requisição externa)
+- Quando vem do ViaCEP:
+  - Retorna imediatamente ao cliente
+  - Enfileira um job para salvar no banco de forma assíncrona (persistência preguiçosa)
+
+---
+
+## 🧠 Estratégia de cache
+
+- Chave: `CEP` (ex.: `01001000`)
+- TTL: 1 hora ao salvar resultados vindos do banco
+- Miss no cache:
+  - Consulta banco; se encontrar, grava em cache
+  - Senão, consulta ViaCEP e retorna o payload (sem cache imediato), enfileirando o salvamento
+- Invalidação:
+  - Por padrão, renovação por TTL. Estratégias de invalidação específicas podem ser adicionadas conforme necessidade
+
+---
+
+## 🧵 Funcionamento da fila
+
+- Fila: `address-queue` (BullMQ)
+- Producer (no `AddressService`):
+  - Job: `save-address`
+  - `jobId = CEP` para deduplicar
+  - Dados: `{ cep, street, city, state }` mapeados a partir do ViaCEP
+- Consumer (`AddressProcessor`):
+  - Implementado com `WorkerHost.process`
+  - Verifica existência pelo CEP; se não existir, cria
+
+---
+
+## ⚙️ Concorrência e idempotência
+
+- Deduplicação de jobs:
+  - `jobId` = CEP reduz a chance de jobs duplicados simultâneos
+- Verificação de existência:
+  - `findUnique({ where: { cep } })` antes de criar
+- Camada de banco:
+  - CEP tratado como único (consulta via `findUnique`) — reforça idempotência
+- Escala:
+  - Concurrency default do worker; escalável aumentando instâncias/replicas
+
+---
+
+## 🧩 Decisões técnicas e trade‑offs
+
+- Persistência assíncrona (lazy) após ViaCEP:
+  - Trade‑off: resposta rápida vs possibilidade de dado não imediatamente persistido
+- Cache com TTL de 1h:
+  - Trade‑off: evita consultas repetidas vs potencial desatualização temporária
+- Bull Board integrado no mesmo processo (em `/admin/queues`):
+  - Simplicidade de operação vs acoplamento à aplicação principal
+- Tipagem e segurança:
+  - Resposta do ViaCEP e JSON do Redis tipados para reduzir `any` e evitar “unsafe”
+- Axios para HTTP:
+  - API madura e simples vs dependência adicional
+- Injeção da fila com `getQueueToken`:
+  - Resolução consistente do provider da fila e testes mais simples
 
 ---
 
@@ -210,20 +297,6 @@ O repositório inclui um export do Insomnia para facilitar os testes dos endpoin
 
 ---
 
-## Project setup
-
-```bash
-$ npm install
-
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-```
-
----
-
 ## Build containers
 
 ```bash
@@ -250,7 +323,6 @@ $ npx prisma generate
 
 # Run migrations
 $ npx prisma migrate dev
-
 
 ---
 
