@@ -1,58 +1,58 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AddressService } from './address.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { getQueueToken } from '@nestjs/bullmq';
-import axios from 'axios';
-jest.mock('axios');
+import { TOKENS } from '../core/tokens';
+import { FindAddressByCepUseCase } from '../core/use-cases/find-address-by-cep.usecase';
 
 describe('AddressService', () => {
   let service: AddressService;
+  let moduleRef: TestingModule;
 
-  const prismaMock = {
-    address: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
+  const repositoryMock = {
+    findByCep: jest.fn(),
+    create: jest.fn(),
   };
 
-  const queueMock = {
-    add: jest.fn(),
-  };
-
-  const redisMock = {
+  const cacheMock = {
     get: jest.fn(),
     set: jest.fn(),
   };
 
+  const providerMock = {
+    fetch: jest.fn(),
+  };
+
+  const queuePortMock = {
+    enqueueSaveAddress: jest.fn(),
+  };
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         AddressService,
-        { provide: PrismaService, useValue: prismaMock },
-        { provide: getQueueToken('address-queue'), useValue: queueMock },
+        { provide: TOKENS.REPOSITORY, useValue: repositoryMock },
+        { provide: TOKENS.CACHE, useValue: cacheMock },
+        { provide: TOKENS.CEP_PROVIDER, useValue: providerMock },
+        { provide: TOKENS.QUEUE, useValue: queuePortMock },
+        {
+          provide: FindAddressByCepUseCase,
+          useValue: new FindAddressByCepUseCase(
+            cacheMock,
+            repositoryMock,
+            providerMock,
+            queuePortMock,
+          ),
+        },
       ],
     }).compile();
 
-    service = module.get<AddressService>(AddressService);
+    service = moduleRef.get(AddressService);
 
-    // fecha a conexão real do Redis criada no construtor para evitar handles abertos
-    const originalRedis = (
-      service as unknown as { redis?: { disconnect?: () => void } }
-    ).redis;
-    if (originalRedis && typeof originalRedis.disconnect === 'function') {
-      originalRedis.disconnect();
-    }
-    (
-      service as unknown as {
-        redis: {
-          get: (...args: unknown[]) => unknown;
-          set: (...args: unknown[]) => unknown;
-        };
-      }
-    ).redis = redisMock as unknown as {
-      get: (...args: unknown[]) => unknown;
-      set: (...args: unknown[]) => unknown;
-    };
+    repositoryMock.findByCep.mockReset();
+    repositoryMock.create.mockReset();
+    cacheMock.get.mockReset();
+    cacheMock.set.mockReset();
+    providerMock.fetch.mockReset();
+    queuePortMock.enqueueSaveAddress.mockReset();
   });
 
   afterEach(() => {
@@ -64,46 +64,37 @@ describe('AddressService', () => {
   });
 
   it('should return cached address if exists in Redis', async () => {
-    redisMock.get.mockResolvedValue(
+    cacheMock.get.mockResolvedValue(
       JSON.stringify({ cep: '123', city: 'TestCity' }),
     );
-
     const result = await service.findByCep('123');
-
     expect(result).toEqual({ cep: '123', city: 'TestCity' });
-    expect(prismaMock.address.findUnique).not.toHaveBeenCalled();
+    expect(repositoryMock.findByCep).not.toHaveBeenCalled();
   });
 
   it('should return from database when present and cache it', async () => {
-    redisMock.get.mockResolvedValue(null);
+    cacheMock.get.mockResolvedValue(null);
     const dbAddress = {
       cep: '12345678',
       street: 'Rua A',
       city: 'Cidade',
       state: 'ST',
     };
-    prismaMock.address.findUnique.mockResolvedValue(dbAddress);
+    repositoryMock.findByCep.mockResolvedValue(dbAddress);
     const result = await service.findByCep('12345678');
     expect(result).toEqual(dbAddress);
-    expect(prismaMock.address.findUnique).toHaveBeenCalledWith({
-      where: { cep: '12345678' },
-    });
-    expect(redisMock.set).toHaveBeenCalled();
+    expect(repositoryMock.findByCep).toHaveBeenCalledWith('12345678');
+    expect(cacheMock.set).toHaveBeenCalled();
   });
 
   it('should call ViaCEP and enqueue save job when not cached or in DB', async () => {
-    redisMock.get.mockResolvedValue(null);
-    prismaMock.address.findUnique.mockResolvedValue(null);
-    const mockedAxios = axios as unknown as {
-      get: jest.Mock;
-    };
-    mockedAxios.get = jest.fn().mockResolvedValue({
-      data: {
-        cep: '01001000',
-        logradouro: 'Praça da Sé',
-        localidade: 'São Paulo',
-        uf: 'SP',
-      },
+    cacheMock.get.mockResolvedValue(null);
+    repositoryMock.findByCep.mockResolvedValue(null);
+    providerMock.fetch.mockResolvedValue({
+      cep: '01001000',
+      logradouro: 'Praça da Sé',
+      localidade: 'São Paulo',
+      uf: 'SP',
     });
     const result = await service.findByCep('01001000');
     expect(result).toEqual({
@@ -112,16 +103,15 @@ describe('AddressService', () => {
       localidade: 'São Paulo',
       uf: 'SP',
     });
-    expect(queueMock.add).toHaveBeenCalledWith(
-      'save-address',
+    expect(queuePortMock.enqueueSaveAddress).toHaveBeenCalledWith(
       {
         cep: '01001000',
         street: 'Praça da Sé',
         city: 'São Paulo',
         state: 'SP',
       },
-      { jobId: '01001000' },
+      '01001000',
     );
-    expect(prismaMock.address.create).not.toHaveBeenCalled();
+    expect(repositoryMock.create).not.toHaveBeenCalled();
   });
 });
