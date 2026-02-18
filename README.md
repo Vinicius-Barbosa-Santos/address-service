@@ -223,6 +223,31 @@ Resposta:
 
 ---
 
+## 🧱 Arquitetura Hexagonal (Ports & Adapters)
+
+- Core (regras de negócio):
+  - Ports: `core/ports`
+    - `CachePort`, `AddressRepositoryPort`, `CepProviderPort`, `QueuePort`
+  - Models: `core/models`
+    - `ViaCepResponse`
+  - Caso de uso: `core/use-cases`
+    - `FindAddressByCepUseCase` (orquestra cache → banco → ViaCEP e enfileira salvamento)
+  - Tokens: `core/tokens`
+    - Identificadores para inversão de dependência
+- Adapters (infraestrutura):
+  - Prisma: `infrastructure/adapters/prisma/prisma-address.repository.adapter.ts`
+  - Redis: `infrastructure/adapters/redis/redis.cache.adapter.ts`
+  - ViaCEP: `infrastructure/adapters/viacep/viacep.provider.adapter.ts`
+  - BullMQ: `infrastructure/adapters/bull/bull.queue.adapter.ts`
+- Orquestração no módulo:
+  - Bind dos adapters aos tokens no `AddressModule`
+  - Factory do `FindAddressByCepUseCase` injetando ports
+- Serviço de aplicação:
+  - `AddressService` delega a leitura ao caso de uso e cria via `AddressRepositoryPort`
+  - Lógica de cache preservada (Redis → DB → ViaCEP) com TTL e enfileiramento
+
+---
+
 ## ✅ O que foi implementado
 
 - Integração do Bull Board no bootstrap:
