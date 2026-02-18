@@ -60,45 +60,6 @@ API para consulta de CEP com:
   - Retorna o resultado imediatamente
   - Envia job para fila para salvar no banco
 
----
-
-## 🏗 Arquitetura
-
-             ┌──────────────┐
-             │    Client    │
-             └──────┬───────┘
-                    │
-                    ▼
-            GET /address/:cep
-                    │
-                    ▼
-             ┌──────────────┐
-             │    Redis     │
-             └──────┬───────┘
-                    │ (miss)
-                    ▼
-             ┌──────────────┐
-             │   Database   │
-             └──────┬───────┘
-                    │ (miss)
-                    ▼
-             ┌──────────────┐
-             │   ViaCEP     │
-             └──────┬───────┘
-                    │
-                    ▼
-             ┌──────────────┐
-             │   BullMQ     │
-             │    Queue     │
-             └──────┬───────┘
-                    │
-                    ▼
-             ┌──────────────┐
-             │    Worker    │
-             └──────────────┘
-
----
-
 # 📌 Endpoint
 
 ## GET /address/:cep
@@ -245,6 +206,43 @@ Resposta:
 - Serviço de aplicação:
   - `AddressService` delega a leitura ao caso de uso e cria via `AddressRepositoryPort`
   - Lógica de cache preservada (Redis → DB → ViaCEP) com TTL e enfileiramento
+
+---
+
+## 🗂️ Estrutura de Pastas (resumo)
+
+- `src/core`
+  - `ports/` — contratos do domínio (CachePort, AddressRepositoryPort, CepProviderPort, QueuePort)
+  - `models/` — modelos de domínio (ViaCepResponse)
+  - `use-cases/` — casos de uso (FindAddressByCepUseCase)
+  - `tokens.ts` — identificadores de injeção
+- `src/infrastructure/adapters`
+  - `prisma/` — repositório Prisma
+  - `redis/` — cache Redis (ioredis)
+  - `viacep/` — provedor HTTP da ViaCEP (axios)
+  - `bull/` — fila BullMQ
+- `src/address` — controller, service e módulo (wiring)
+- `src/queue` — worker/processor
+- `src/prisma` — PrismaService
+
+---
+
+## 🔌 Como estender/trocar adapters
+
+- Novo cache:
+  - Implementar `CachePort`
+  - Trocar o bind de `TOKENS.CACHE` no `AddressModule`
+- Novo provedor de CEP:
+  - Implementar `CepProviderPort`
+  - Trocar o bind de `TOKENS.CEP_PROVIDER`
+- Outro banco:
+  - Implementar `AddressRepositoryPort`
+  - Trocar `TOKENS.REPOSITORY`
+- Outra fila:
+  - Implementar `QueuePort`
+  - Trocar `TOKENS.QUEUE`
+
+Sem alterar o caso de uso; apenas troca de adapter e o bind no módulo.
 
 ---
 

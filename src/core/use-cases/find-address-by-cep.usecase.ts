@@ -23,6 +23,7 @@ export class FindAddressByCepUseCase {
       await this.cache.set(cep, JSON.stringify(fromDb), 3600);
       return fromDb;
     }
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const data = (await this.provider.fetch(cep)) as ViaCepResponse;
     if (data && data.erro) {
       return { cep, logradouro: '', localidade: '', uf: '' };
